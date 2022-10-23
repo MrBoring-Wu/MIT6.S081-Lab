@@ -261,7 +261,7 @@ fork(void)
   int i, pid;
   struct proc *np;
   struct proc *p = myproc();
-
+  
   // Allocate process.
   if((np = allocproc()) == 0){
     return -1;
@@ -295,6 +295,9 @@ fork(void)
 
   np->state = RUNNABLE;
 
+  // adds by myself
+  np->mask=p->mask;
+  //----
   release(&np->lock);
 
   return pid;
@@ -692,4 +695,17 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+
+
+
+int cntexistpro(){
+ struct proc *p;
+ int cnt=0;
+ for(p = proc; p < &proc[NPROC]; p++) {
+   if(p->state != UNUSED) {
+     cnt++;
+   }
+ }
+ return cnt;
 }
