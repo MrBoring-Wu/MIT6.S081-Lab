@@ -70,12 +70,14 @@ exec(char *path, char **argv)
   uint64 sz1;
   if((sz1 = uvmalloc(pagetable, sz, sz + 2*PGSIZE)) == 0)
     goto bad;
-  sz = sz1;
-  //自己写的
-  if(p->sz+2*PGSIZE>=PLIC){
+   //自己写的
+  if(sz1>=PLIC){
     goto bad;
   }
-  kvcopyuv(pagetable,p->proc_kernel_pagetable,0,p->sz+2*PGSIZE);
+  sz = sz1;
+ 
+ 
+ 
 
   uvmclear(pagetable, sz-2*PGSIZE);
   sp = sz;
@@ -117,6 +119,10 @@ exec(char *path, char **argv)
   // Commit to the user image.
   oldpagetable = p->pagetable;
   p->pagetable = pagetable;
+
+  uvmunmap(p->proc_kernel_pagetable, 0, PGROUNDUP(p->sz)/PGSIZE, 0);
+  kvcopyuv(pagetable,p->proc_kernel_pagetable,0,sz);
+
   p->sz = sz;
   p->trapframe->epc = elf.entry;  // initial program counter = main
   p->trapframe->sp = sp; // initial stack pointer

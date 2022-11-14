@@ -109,8 +109,9 @@ walk(pagetable_t pagetable, uint64 va, int alloc)
     if(*pte & PTE_V) {
       pagetable = (pagetable_t)PTE2PA(*pte);
     } else {
-      if(!alloc || (pagetable = (pde_t*)kalloc()) == 0)
+      if(!alloc || (pagetable = (pde_t*)kalloc()) == 0){
         return 0;
+      }
       memset(pagetable, 0, PGSIZE);
       *pte = PA2PTE(pagetable) | PTE_V;
     }
@@ -187,14 +188,16 @@ mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
 {
   uint64 a, last;
   pte_t *pte;
-
+  
   a = PGROUNDDOWN(va);
   last = PGROUNDDOWN(va + size - 1);
   for(;;){
-    if((pte = walk(pagetable, a, 1)) == 0)
-      return -1;
-    if(*pte & PTE_V)
-      panic("remap");
+    if((pte = walk(pagetable, a, 1)) == 0){
+       
+        return -1;
+      }
+    if(*pte & PTE_V){
+      panic("remap");}
     *pte = PA2PTE(pa) | perm | PTE_V;
     if(a == last)
       break;
@@ -215,7 +218,7 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
 
   if((va % PGSIZE) != 0)
     panic("uvmunmap: not aligned");
-
+  
   for(a = va; a < va + npages*PGSIZE; a += PGSIZE){
     if((pte = walk(pagetable, a, 0)) == 0)
       panic("uvmunmap: walk");
@@ -288,6 +291,27 @@ uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
   return newsz;
 }
 
+int kvcopyuv(pagetable_t old, pagetable_t new, uint64 low,uint64 high){
+  pte_t *pte,*newPte;
+  uint64 pa, i;
+  uint flags;
+  for(i = PGROUNDUP(low); i < high; i += PGSIZE){
+    if((pte = walk(old, i, 0)) == 0)
+      panic("uvmcopy: pte should exist");
+    if((*pte & PTE_V) == 0)
+      panic("uvmcopy: page not present");
+    if((newPte = walk(new, i, 1)) == 0)
+      panic("uvmcopy_not_physical:page not present");
+    pa = PTE2PA(*pte);
+    flags = PTE_FLAGS(*pte)&~PTE_U;
+    *newPte=PA2PTE(pa)|flags;
+  }
+  
+  return 0;
+}
+
+
+
 // Deallocate user pages to bring the process size from oldsz to
 // newsz.  oldsz and newsz need not be page-aligned, nor does newsz
 // need to be less than oldsz.  oldsz can be larger than the actual
@@ -295,26 +319,27 @@ uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
 uint64
 uvmdealloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
 {
-   if(newsz >= oldsz)
-      return oldsz;
+  if(newsz >= oldsz)
+    return oldsz;
 
-    if(PGROUNDUP(newsz) < PGROUNDUP(oldsz)){
-      int npages = (PGROUNDUP(oldsz) - PGROUNDUP(newsz)) / PGSIZE;
-      uvmunmap(pagetable, PGROUNDUP(newsz), npages, 1);
+  if(PGROUNDUP(newsz) < PGROUNDUP(oldsz)){
+    int npages = (PGROUNDUP(oldsz) - PGROUNDUP(newsz)) / PGSIZE;
+    uvmunmap(pagetable, PGROUNDUP(newsz), npages, 1);
+  }
+
   return newsz;
 }
 
-int kvdemap(pagetable_t pagetable, uint64 oldsz, uint64 newsz){
+void kvdemap(pagetable_t pagetable, uint64 oldsz, uint64 newsz){
   
-    if(newsz >= oldsz)
-      return oldsz;
-
+     if(newsz >= oldsz)
+      return;
     if(PGROUNDUP(newsz) < PGROUNDUP(oldsz)){
       int npages = (PGROUNDUP(oldsz) - PGROUNDUP(newsz)) / PGSIZE;
       uvmunmap(pagetable, PGROUNDUP(newsz), npages, 0);
-      return newsz;
     }
 }
+
 
 // Recursively free page-table pages.
 // All leaf mappings must already have been removed.
@@ -381,30 +406,6 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
   uvmunmap(new, 0, i / PGSIZE, 1);
   return -1;
 }
-
-int kvcopyuv(pagetable_t old, pagetable_t new, uint64 low,uint64 high){
-  pte_t *pte;
-  uint64 pa, i;
-  uint flags;
-  for(i = PGROUNDUP(low); i < high; i += PGSIZE){
-    if((pte = walk(old, i, 0)) == 0)
-      panic("uvmcopy: pte should exist");
-    if((*pte & PTE_V) == 0)
-      panic("uvmcopy: page not present");
-    pa = PTE2PA(*pte);
-    flags = PTE_FLAGS(*pte);
-    if(mappages(new, i, PGSIZE, (uint64)pa, flags) != 0){
-      goto err;
-    }
-  }
-  return 0;
- err:
-  uvmunmap(new, 0, i / PGSIZE, 1);
-  return -1;
-}
-
-
-
 
 // mark a PTE invalid for user access.
 // used by exec for the user stack guard page.

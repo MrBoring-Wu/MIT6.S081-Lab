@@ -272,6 +272,8 @@ userinit(void)
   // and data into it.
   uvminit(p->pagetable, initcode, sizeof(initcode));
   p->sz = PGSIZE;
+//添加内容
+  kvcopyuv(p->pagetable, p->proc_kernel_pagetable, 0, p->sz);
 
   // prepare for the very first "return" from kernel to user.
   p->trapframe->epc = 0;      // user program counter
@@ -290,6 +292,7 @@ userinit(void)
 int
 growproc(int n)
 {
+  
   uint sz;
   struct proc *p = myproc();
 
@@ -298,8 +301,11 @@ growproc(int n)
     if(sz+n>=PLIC){
       return -1;
     }
-    if((sz = uvmalloc(p->pagetable, sz, sz + n)) == 0||(kvcopyuv(p->pagetable,p->proc_kernel_pagetable,sz,sz+n))) {
+    if((sz = uvmalloc(p->pagetable, sz, sz + n)) == 0) {
       return -1;
+    }
+    if(p->sz<sz){
+      kvcopyuv(p->pagetable,p->proc_kernel_pagetable,p->sz,sz);
     }
   } else if(n < 0){
         kvdemap(p->proc_kernel_pagetable,sz,sz+n);
@@ -315,6 +321,7 @@ growproc(int n)
 int
 fork(void)
 {
+  
   int i, pid;
   struct proc *np;
   struct proc *p = myproc();
@@ -325,7 +332,7 @@ fork(void)
   }
 
   // Copy user memory from parent to child.
-  if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0||kvcopyuv(np->pagetable,np->proc_kernel_pagetable,0,np->sz)<0){
+  if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0||kvcopyuv(np->pagetable,np->proc_kernel_pagetable,0,p->sz)<0){
     freeproc(np);
     release(&np->lock);
     return -1;
@@ -353,7 +360,6 @@ fork(void)
   np->state = RUNNABLE;
 
   release(&np->lock);
-
   return pid;
 }
 

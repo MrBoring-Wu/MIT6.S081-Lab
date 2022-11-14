@@ -180,8 +180,9 @@ int             copyin(pagetable_t, char *, uint64, uint64);
 int             copyinstr(pagetable_t, char *, uint64, uint64);
 pte_t * walk(pagetable_t pagetable, uint64 va, int alloc);
 
+
+void kvdemap(pagetable_t pagetable, uint64 oldsz, uint64 newsz);
 //把进程的页表复制到内核
-int kvdemap(pagetable_t pagetable, uint64 oldsz, uint64 newsz);
 int kvcopyuv(pagetable_t old, pagetable_t new, uint64 low,uint64 high);
 int  copyinstr_new(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max);
 int  copyin_new(pagetable_t pagetable, char *dst, uint64 srcva, uint64 len);
