@@ -7,6 +7,7 @@
 #include "spinlock.h"
 #include "proc.h"
 
+
 uint64
 sys_exit(void)
 {
@@ -70,6 +71,7 @@ sys_sleep(void)
     sleep(&ticks, &tickslock);
   }
   release(&tickslock);
+  backtrace();
   return 0;
 }
 
@@ -95,3 +97,5 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+
